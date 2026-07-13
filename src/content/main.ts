@@ -11,9 +11,21 @@ let hostEl: HTMLElement | null = null;
 
 /** The job-title element to anchor next to (LinkedIn / Naukri). */
 function findTitleEl(): HTMLElement | null {
-  return document.querySelector<HTMLElement>(
-    '.job-details-jobs-unified-top-card__job-title, .jobs-unified-top-card__job-title, .topcard__title, .top-card-layout__title, [class*="jd-header-title" i], .styles_jd-header-title__rZwM1'
+  // 1) Known LinkedIn / Naukri title selectors (fast path).
+  const known = document.querySelector<HTMLElement>(
+    '.job-details-jobs-unified-top-card__job-title h1, .job-details-jobs-unified-top-card__job-title, .jobs-unified-top-card__job-title, .topcard__title, .top-card-layout__title, [class*="jd-header-title" i], .styles_jd-header-title__rZwM1'
   );
+  if (known) return known;
+  // 2) Resilient fallback: the first real <h1> inside LinkedIn's job-detail pane.
+  //    LinkedIn renames the title class often, but the job title stays an <h1>.
+  const scope =
+    document.querySelector(
+      '[class*="job-details-jobs-unified-top-card" i], [class*="jobs-unified-top-card" i], .jobs-details, .job-view-layout, main'
+    ) || document.body;
+  for (const h of Array.from(scope.querySelectorAll<HTMLElement>('h1'))) {
+    if ((h.textContent || '').trim().length >= 2 && h.offsetParent !== null) return h;
+  }
+  return null;
 }
 
 /** Place the host inline right after the job title; fall back to floating. */
