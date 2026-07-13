@@ -11,20 +11,57 @@ let hostEl: HTMLElement | null = null;
 
 /** The job-title element to anchor next to (LinkedIn / Naukri). */
 function findTitleEl(): HTMLElement | null {
-  return document.querySelector<HTMLElement>(
+  // 1) Classic LinkedIn / Naukri markup (stable class names).
+  const known = document.querySelector<HTMLElement>(
     '.job-details-jobs-unified-top-card__job-title, .jobs-unified-top-card__job-title, .topcard__title, .top-card-layout__title, [class*="jd-header-title" i], .styles_jd-header-title__rZwM1'
   );
+  if (known) return known;
+  // 2) Current LinkedIn split-view UI: obfuscated classes, no <h1>. The job title is
+  //    always a link to /jobs/view/<id> and is the largest visible text on the pane.
+  const links = Array.from(
+    document.querySelectorAll<HTMLElement>('a[href*="/jobs/view/"]')
+  ).filter((a) => a.offsetParent !== null && (a.textContent || '').trim().length > 2);
+  if (links.length) {
+    return links.reduce((best, a) =>
+      (parseFloat(getComputedStyle(a).fontSize) || 0) >
+      (parseFloat(getComputedStyle(best).fontSize) || 0)
+        ? a
+        : best
+    );
+  }
+  return null;
+}
+
+/** The element the tile should sit immediately after when anchored inline. */
+function anchorRef(): HTMLElement | null {
+  const title = findTitleEl();
+  if (!title || !title.parentElement) return null;
+  if (title.tagName !== 'A') return title; // classic markup: right after the title element
+  // New LinkedIn UI: the title link lives inside horizontal flex rows. Climb out of any
+  // row-direction flex ancestor so our full-width tile lands on its own line below the
+  // header block instead of competing for width (which was wrapping the title text).
+  let el: HTMLElement = title;
+  for (let i = 0; i < 6 && el.parentElement && el.parentElement !== document.body; i++) {
+    const cs = getComputedStyle(el.parentElement);
+    const horizontalRow = cs.display.includes('flex') && cs.flexDirection.startsWith('row');
+    if (!horizontalRow) break; // parent stacks vertically → el is a full-width row
+    el = el.parentElement;
+  }
+  return el;
 }
 
 /** Place the host inline right after the job title; fall back to floating. */
 function anchor(host: HTMLElement): 'inline' | 'float' {
-  const title = findTitleEl();
-  if (title && title.parentElement) {
-    if (title.nextElementSibling !== host) title.insertAdjacentElement('afterend', host);
+  const ref = anchorRef();
+  if (ref) {
+    if (ref.nextElementSibling !== host) ref.insertAdjacentElement('afterend', host);
+    // Force full-width block so LinkedIn's flex containers can't squeeze the tile.
+    host.style.cssText = 'display:block;width:100%;flex-basis:100%';
     host.dataset.slMode = 'inline';
     return 'inline';
   }
   if (host.parentElement !== document.body) document.body.appendChild(host);
+  host.style.cssText = '';
   host.dataset.slMode = 'float';
   return 'float';
 }
@@ -301,10 +338,10 @@ document.addEventListener('mouseup', () => {
 // the job title finally renders (additive — never demotes a working inline tile).
 function remount() {
   if (!hostEl) return;
-  const title = findTitleEl();
+  const ref = anchorRef();
   const mode = hostEl.dataset.slMode;
-  const drifted = mode === 'inline' && title && title.nextElementSibling !== hostEl;
-  const upgrade = mode === 'float' && !!(title && title.parentElement);
+  const drifted = mode === 'inline' && ref && ref.nextElementSibling !== hostEl;
+  const upgrade = mode === 'float' && !!ref; // title loaded late → move inline
   if (!hostEl.isConnected || drifted || upgrade) {
     const newMode = anchor(hostEl);
     applyMode(hostEl, newMode);
