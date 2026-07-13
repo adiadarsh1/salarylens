@@ -3,3 +3,9 @@ dist
 *.zip
 .DS_Store
 .env*
+
+# Chrome Web Store submission material (kept locally, not published)
+STORE_LISTING.md
+store-assets/promo-*.png
+store-assets/icon-512.png
+store-assets/store-icon-128.png
