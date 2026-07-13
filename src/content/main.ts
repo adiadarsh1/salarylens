@@ -11,21 +11,9 @@ let hostEl: HTMLElement | null = null;
 
 /** The job-title element to anchor next to (LinkedIn / Naukri). */
 function findTitleEl(): HTMLElement | null {
-  // 1) Known LinkedIn / Naukri title selectors (fast path).
-  const known = document.querySelector<HTMLElement>(
-    '.job-details-jobs-unified-top-card__job-title h1, .job-details-jobs-unified-top-card__job-title, .jobs-unified-top-card__job-title, .topcard__title, .top-card-layout__title, [class*="jd-header-title" i], .styles_jd-header-title__rZwM1'
+  return document.querySelector<HTMLElement>(
+    '.job-details-jobs-unified-top-card__job-title, .jobs-unified-top-card__job-title, .topcard__title, .top-card-layout__title, [class*="jd-header-title" i], .styles_jd-header-title__rZwM1'
   );
-  if (known) return known;
-  // 2) Resilient fallback: the first real <h1> inside LinkedIn's job-detail pane.
-  //    LinkedIn renames the title class often, but the job title stays an <h1>.
-  const scope =
-    document.querySelector(
-      '[class*="job-details-jobs-unified-top-card" i], [class*="jobs-unified-top-card" i], .jobs-details, .job-view-layout, main'
-    ) || document.body;
-  for (const h of Array.from(scope.querySelectorAll<HTMLElement>('h1'))) {
-    if ((h.textContent || '').trim().length >= 2 && h.offsetParent !== null) return h;
-  }
-  return null;
 }
 
 /** Place the host inline right after the job title; fall back to floating. */
@@ -44,7 +32,7 @@ function anchor(host: HTMLElement): 'inline' | 'float' {
 /** Keep the shadow-DOM wrapper's layout class in sync with the current anchor mode. */
 function applyMode(host: HTMLElement, mode: 'inline' | 'float') {
   const wrap = host.shadowRoot?.querySelector('.wrap');
-  if (wrap) wrap.className = `wrap ${mode}`;
+  if (wrap) wrap.className = wrap.className.replace(/\bwrap (inline|float)\b/, `wrap ${mode}`);
 }
 
 /** True only where we should show anything (LinkedIn job pages / Naukri). */
@@ -64,22 +52,7 @@ function teardown() {
 
 function render(annual: number, source: Source, open: boolean, est?: RoleEstimate) {
   const key = `${annual}:${source}:${est?.role || ''}`;
-
-  let host = hostEl;
-  if (!host) {
-    host = document.createElement('div');
-    host.id = HOST_ID;
-    host.attachShadow({ mode: 'open' });
-    hostEl = host;
-  }
-  const prevMode = host.dataset.slMode as 'inline' | 'float' | undefined;
-  const mode = anchor(host); // place inline after the job title, else float
-  // Same content and stable anchor → keep layout in sync and skip a re-render.
-  // (A float→inline upgrade, e.g. the title loading late, falls through to render.)
-  if (key === lastKey && !open && mode === prevMode) {
-    applyMode(host, mode);
-    return;
-  }
+  if (key === lastKey && !open) return;
 
   const b = computeInHand({
     ...DEFAULT_INPUT,
@@ -94,6 +67,14 @@ function render(annual: number, source: Source, open: boolean, est?: RoleEstimat
     srcLine = `Est: ${est.role}${est.company ? ' @ ' + est.company : ''} • ${est.basis} • total ${formatCompactINR(est.low)}–${formatCompactINR(est.high)}`;
   else srcLine = `Detected on page • ${formatCompactINR(annual)}`;
 
+  let host = hostEl;
+  if (!host) {
+    host = document.createElement('div');
+    host.id = HOST_ID;
+    host.attachShadow({ mode: 'open' });
+    hostEl = host;
+  }
+  const mode = anchor(host); // place inline after the job title, else float
   const root = host.shadowRoot!;
   lastKey = key;
   // Always start minimized (just the pill). Only an explicit text-selection opens it.
@@ -238,8 +219,7 @@ function render(annual: number, source: Source, open: boolean, est?: RoleEstimat
 }
 
 function scan() {
-  // Only ever show anything on a real job page (LinkedIn is a SPA — the script now
-  // loads site-wide, so bail out everywhere else and clean up if we drifted off a job).
+  // LinkedIn is a SPA and the script now loads site-wide — only act on job pages.
   if (!onJobContext()) {
     teardown();
     return;
@@ -317,15 +297,14 @@ document.addEventListener('mouseup', () => {
   }
 });
 
-// Re-attach the tile if LinkedIn's re-render strips it out, and upgrade a late
-// float→inline once the job title finally shows up (preserves content, no re-pulse).
+// Re-attach if LinkedIn strips the tile out, and promote a late float→inline once
+// the job title finally renders (additive — never demotes a working inline tile).
 function remount() {
   if (!hostEl) return;
   const title = findTitleEl();
   const mode = hostEl.dataset.slMode;
-  const inlineReady = !!(title && title.parentElement);
   const drifted = mode === 'inline' && title && title.nextElementSibling !== hostEl;
-  const upgrade = mode === 'float' && inlineReady; // title loaded late → move inline
+  const upgrade = mode === 'float' && !!(title && title.parentElement);
   if (!hostEl.isConnected || drifted || upgrade) {
     const newMode = anchor(hostEl);
     applyMode(hostEl, newMode);
