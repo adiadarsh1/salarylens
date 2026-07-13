@@ -26,7 +26,7 @@ export default defineManifest({
     {
       matches: [
         'https://www.naukri.com/*',
-        'https://www.linkedin.com/jobs/*',
+        'https://www.linkedin.com/*',
       ],
       js: ['src/content/main.ts'],
       run_at: 'document_idle',

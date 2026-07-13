@@ -1,6 +1,6 @@
 {
   "name": "salarylens",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "See your real in-hand salary from any CTC — decode Indian job offers instantly.",
   "type": "module",
   "scripts": {
