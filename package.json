@@ -1,7 +1,7 @@
 {
   "name": "salarylens",
-  "version": "1.0.1",
-  "description": "See your real in-hand salary from any CTC — decode Indian job offers instantly.",
+  "version": "1.1.0",
+  "description": "In-hand salary calculator for any Indian CTC — decode take-home pay on LinkedIn & Naukri job posts.",
   "type": "module",
   "scripts": {
     "dev": "vite",

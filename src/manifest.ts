@@ -3,10 +3,10 @@ import pkg from '../package.json';
 
 export default defineManifest({
   manifest_version: 3,
-  name: 'SalaryLens — CTC to In-Hand Decoder',
+  name: 'SalaryLens – CTC to In-Hand Salary Calculator (India)',
   version: pkg.version,
   description:
-    'See real monthly in-hand for any Indian CTC — right on LinkedIn & Naukri. EPF, tax, stock & estimates decoded.',
+    'In-hand salary calculator for any Indian CTC — right on LinkedIn & Naukri. Decode take-home pay: EPF, tax, stock & estimates.',
   icons: {
     16: 'icons/icon16.png',
     48: 'icons/icon48.png',
@@ -22,6 +22,7 @@ export default defineManifest({
     },
   },
   permissions: ['storage'],
+  host_permissions: ['https://api.gumroad.com/*'],
   content_scripts: [
     {
       matches: [
